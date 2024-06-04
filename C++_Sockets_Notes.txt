@@ -1,0 +1,580 @@
+https://www.youtube.com/watch?v=gntyAFoZp-E
+
+
+stdafx.h : precompiled header files. In visual studio versions later than
+	   2017, this file is called pch.h. 
+
+targetver.h ???
+
+
+
+~~~~ Key Concepts ~~~~
+1. IP addresses and Ports
+2. States diagram for sockets (unbound, bound, listening)
+3. Setup steps; moving through states (with server)
+4. Setup steps; moving through states (with client)
+
+
+
+
+~~~~ Code Reference ~~~~
+int WSAStartup(WORD wVersionRequested, LPWSADATA lpWSAData);
+	wVersionRequested : Highest ver of the Windows Socket
+			    specification that the caller can use.
+			    THe high-order byte specifies the minor
+			    version number. THe lower order byte
+			    specifies the the major version number
+	lpWSAData : a long pointer to the LPWSADATA struct to receive
+		    details of the windows sockets implementation
+
+	Returns : 0 if successful.
+
+
+ typedef struct WSADATA {
+	WORD wVersion;
+	WORD wHighVersion;
+	char szDescription[WSADESCRIPTION_LEN+1];
+	char szSystemStatus[WSASYS_STATUS_LEN+1];
+	unsigned short iMaxSockets;
+	unsigned short iMaxUdpDg;
+	char FAR *IpVendorInfo;
+ }
+
+ WORD MAKEWORD( 	// Macro to make word
+	BYTE bLow,	// Lower order byte 
+	BYTE bHigh,	// Higher order byte
+ );
+
+
+ SOCKET WSAAPI socket( int af, int type, int protocol );
+	af : address family. AF_INET for UDP or TCP
+	type : type of socket
+		SOCK_STREAM --> TCP
+		SOCK_DGRAM  --> UDP
+	protocol : IPPROTO_TCP --> TCP
+	returns : 0 if successful. SOCKET_ERROR otherwise
+
+ int WSACleanup(void)
+	When it has completed the use of windows sockets, the 
+	application or DLL must call this to deregister itself
+	from a windows socket. Otherwise the socket will continue
+	to exist?
+
+	Multiple applications may use a DLL. windows tracks
+	the number of applications using a DLL and only removes
+	the DLL from system memory once that number is 0.
+
+ closeSocket(serverSocket);
+
+
+
+
+extraction operator ">>"
+insertion operator "<<"
+
+cin terminates at a whitespace.
+
+cin.getline() avoids this, allowing us to read an entire line, terminated
+at the carriage return operator
+
+
+
+
+~~~~ UPD ~~~~
+
+sockaddr_in address;
+address.sin_family = AF_INET;
+InetPton(AF_INET, _T("127.0.0.1"1), &address.sin_addr.s_addr);
+address.sin_port = htons(5555);
+
+char buffer[200] = "send this to server"
+int bytesSent = sendto(socket, (const char*)buffer, strlen(buffer), 0,
+		       (struct sockaddr*)&address, sizeof(address)    );
+if (bytesSent == -1)
+{
+	cout << "Error Transmitting data." << endl;
+	WSACleanup();
+	return 0;
+}
+else
+{
+	cout << "Data sent: " << buffer << endl;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+---- The Internet ----
+
+IP addresses only exist in the context of some network.
+For instance, my router at home will store an IP address associated
+with my laptop. This IP address will be different than the IP address
+my laptop stores for itself (called loopback address. 127.0.0.1).
+
+In addition to IP addresses, a computer also has Port's. A port is a
+communication endpoint. They are ID'd using 16 bit numbers. 
+An application can be bound to a port, receiving data sent to said port.
+Bound or not, the intended use for a port is as an endpoint for a 
+specific kind of data
+Port numbers 1,...,1023 are reserved on Windows.
+
+
+-- TCP (Transmission Control Protocol) --
+Requires a connection be established before data can be
+sent or received
+
+
+-- UDP (User Datagram Protocol) --
+Doesn't require a connection. Doesn't check to see if receiver
+is even set up.
+Less reliable, less secure, FASTER
+
+
+-- OSI 7 Layers --
+
+
+-- IP Addresses & Port Numbers --
+
+Port numbers serve as the endpoint for communication.
+If the IP adress is the city something is shipped to,
+the port number is specific place in the city the shipment is
+going to.
+
+Server Port #'s are assigned in the code.
+Client Port #'s are assigned by the OS.
+
+The OS assigns a port # to the client upon connection because
+a client can potentially have multiple connections to different servers.
+The server's port # is assigned in the code so clients know where to 
+connect to. Without this, clients would need to guess
+
+
+-- Ports --
+Port Numbers : (16 bit address, 1 WORD)
+
+Ports 1,...,1023 are WELL KNOWN PORTS and are reserved by the OS.
+
+
+-- Sockets --
+Def : A pipe between two computers on a network through which
+      data flows
+The connection is two way.
+
+2 Common Types of Socket
+ 1. Streaming socket (SOCK_STREAM) TCP
+ 2. Datagram socket (SOCK_DGRAM) UDP
+
+
+
+
+
+
+
+-- Create a Socket --
+
+Let S_ = Server socket Status
+
+S_ : Unbound --> No IP, No Port
+
+S_ : Bound --> IP, Port
+
+S_ : Listening --> IP, Port, Waiting for incoming connections
+
+
+Let C_ = Client socket Status
+
+C_ : Unbound --> No Ip, No port
+
+C_ : Bound --> IP, Port.	Binding a client socket requires making
+				a connection with server socket.
+				Binding server socket DOESN'T require
+				binding with client 
+
+Once server and client are connected, the originally listening server
+socket is duplicated, with the connection on the client socket.
+ie. the original socket's soul purpose is the listen for incoming 
+connections
+
+
+
+
+
+
+
+
+
+
+
+---- Code Functions ----     (IMPORTANT)
+
+WSA == Windows Socket API
+
+
+
+-- Server Functions --
+1. Initialize WSA - WSAStartup()
+2. Create a Socket - socket()
+	- Choose which protocl (UDP/TCP) we're gonna use
+3. Bind the socket - bind()
+4. Listen on the socket() - listen()
+5. Accept a connection - accept(), connect()
+6. Send and receive data - recv(), send(), recvfrom(), sendto()
+7. Disconnect - closesocket()
+
+-- Client Functions --
+1. Initialize WSA - WSAStartup()
+2. Create a socket - socket()
+3. connect to the server - connect()
+4. send and receive data - recv(), send(), recvfrom(), sendto()
+5. disconnect - close socket
+
+
+
+-- Server Code --
+1. Server must load the WSA DLL through WSAStartup()
+ 
+ int WSAStartup(WORD wVersionRequested, LPWSADATA lpWSAData);
+	wVersionRequested : Highest ver of the Windows Socket
+			    specification that the caller can use.
+			    THe high-order byte specifies the minor
+			    version number. THe lower order byte
+			    specifies the the major version number
+	lpWSAData : a long pointer to the LPWSADATA struct to receive
+		    details of the windows sockets implementation
+	Returns : 0 if successful.
+
+ typedef struct WSADATA {
+	WORD wVersion;
+	WORD wHighVersion;
+	char szDescription[WSADESCRIPTION_LEN+1];
+	char szSystemStatus[WSASYS_STATUS_LEN+1];
+	unsigned short iMaxSockets;
+	unsigned short iMaxUdpDg;
+	char FAR *IpVendorInfo;
+ }
+
+
+2. Creates a socket specifying the protocol to be used.
+ SOCKET WSAAPI socket( int af, int type, int protocol );
+	af : address family. AF_INET for UDP or TCP
+	type : type of socket
+		SOCK_STREAM --> TCP
+		SOCK_DGRAM  --> UDP
+	protocol : IPPROTO_TCP --> TCP
+	returns : 0 if successful. SOCKET_ERROR otherwise
+
+ int WSACleanup(void)
+	When it has completed the use of windows sockets, the 
+	application or DLL must call this to deregister itself
+	from a windows socket. Otherwise the socket will continue
+	to exist?
+
+	Multiple applications may use a DLL. windows tracks
+	the number of applications using a DLL and only removes
+	the DLL from system memory once that number is 0.
+
+ closeSocket(serverSocket);
+	
+
+
+3. Binds the server's IP address to the socket
+ int bind(SOCKET s, const struct sockaddr* name, int socklen)
+	s : socket descriptor
+	name : address to assign to the socket from the sockaddr structure
+	socklen : Length, in bytes, of the address structure
+	Returns : 0 if no error. SOCKET_ERROR otherwise
+
+ struct sockaddr_in{
+	short sin_family;
+	unsigned short sin_port;
+	struct in_addr sin_addr;
+	char sin_zero[8];
+ };
+	sin_family : address family (must be AF_INET)
+	sin_port : IP port
+	sin_addr : IP address
+	sin_zero : padding to make the structure the same size as SOCCADDR.
+		   SOCKADDR was the struct previous used. We're using
+		   sockaddr_in because it's newer.
+		   the `htons` function returns the value in TCP/IP network
+		   byte order.
+
+ htons(...)
+	makes sure data passed is converted into network byte format,
+	which is Big-Endian. There are differences between CPU's
+	on certain machines as to how they order their bytes.
+
+
+
+
+NOTE: 4 & 5 are actually 1 step !!!!
+
+
+
+4. listens for clients trying to establish connections
+ int listen(SOCKET s, int backlog)
+	s : socket descriptor
+	backlog : maximum number of connections allowed. OS dependent
+	Returns : 0 without errors. SOCKET_ERROR otherwise
+
+	places the socket in a listening state
+
+
+
+5. duplicates the socket upon accepting client connection.
+ SOCKET accept(SOCKET s, struct sockaddr* addr, int* addrlen);
+	s : Socket descriptor
+	addr : optional structure containing the client address information
+	addrlen : optional size of the address structure
+	Returns : SOCKET value if no error. This is a descriptor for the new
+		  socket that is connected to the client. 
+
+        BLOCKS. The operating system waits for incoming connections on
+	behalf of the application. The OS does this asynchronously. 
+	if the application has no way of handling new connections being 
+	created beyond the first, later connections will never be handled
+	or processed.
+
+	Example of code that might handle multiple connections beyond a first.
+	loop {
+  		socket = accept();
+  		new ThreadHandler( socket )
+	}
+
+
+---- Client Code ----
+The same as the server code up until the listening and accepting stage.
+The client must instead attempt to connect
+
+3. Connect to a server
+ int connect(SOCKET s, const struct sockaddr* addr, socklen_t addrlen);
+	s : socket descriptor
+	addr : structure containing server IP address and port
+	addrlen : Size in bytes of addr structure
+	
+	connect will wait 75 seconds for server to respond.
+	return 0 if successful or SOCKET_ERROR if not
+
+
+
+
+---- TCP Code for Step 6(Server) & Step 4(Client) ----
+
+NOTE: These two functions BLOCK until they've sent or received,
+      respectively
+
+int send(SOCKET s, const char* buf, int len, int flag)
+	s : Socket descriptor
+	buf : a pointer to the buffer to the data to be transmitted
+	len : the length, in bytes, of the buffer pointed to by the buf
+	      parameter
+	flags : optional set of flags that influences the behavvior of this
+		function
+	Returns : no error --> number of bytes sent, 
+		  else --> SOCKET_ERROR
+
+int recv(SOCKET s, char* buf, int len, in flags)
+	s : Receiving socket descriptor
+	buf : a pointer to the buffer meant to receive the data
+	len : the length, in bytes, of the buffer pointed to by the buf
+	      parameter
+	flags : optional set of flags that influences the behavior of the
+		function
+	Returns : no error --> number of bytes received
+		  connection was gracefully closed --> 0
+		  else --> SOCKET_ERROR
+
+
+-- Client Code --
+char buffer[200];
+printf("Enter your message ");
+cin.getline(buffer, 200);
+int byteCount = send(clientSocket, buffer, 200, 0);
+if (byteCount == SOCKET_ERROR)
+{
+	printf("Server send error %ld.\n", WSAGetLastError());
+	return -1;
+}
+else
+{
+	printf("Server: sent %ld bytes \n", byteCount);
+}
+
+
+-- User Input --
+#include <iostream> AND using namespace std
+
+Invoke cin.getline() to capture a series of characters including spaces
+
+"cint >>" reads single words. This is why cin.getline() is valuable
+
+
+-- Assigning Values to char Array --
+char sendBuffer[200] = "Message" is valid, but we can't use the assignment
+operator after the char buffer has been defined.
+Instead, use strcpy or strcpy_s
+use strlen(buffer) to return the number of character's in the string
+
+-- Comparing Character Arrays --
+int strcomp(const char* string1, const char* string2)
+	Returns: 0 --> they are equal
+		 < 0 --> string1 < string2
+		 > 0 --> string1 > string2 
+
+
+
+-- Server Code --
+char receiveBuffer[200] = "";
+int byteCount = recv(acceptSocket, receiveBuffer, 200, 0);
+if (byteCount < 0)
+{
+	printf("Client: error %ld.\n", WSAGetLastError());
+	return 0;
+}
+else
+{
+	printf("Received data: %s \n", receiveBuffer);
+}
+
+
+
+-- Transmitting Objects --
+Assume Data has been defined elsewhere
+Cast the Object's address to a char*
+
+	- Sending -
+	Data data;
+	data.health = 100;
+	byteCount = send(socket, (char*)&data, sizeof(Data), 0);
+
+	- Receiving - 
+	Data data;
+	byteCount = recv(clientSocket, (char*)&data, sizeof(Data), 0);	
+	printf("Health: \"%d\"\n, data.health);
+
+
+
+
+
+---- UDP ----
+Universal Datagram protocol OR User Datagram Protocol
+client and server don't maintain a constant connection
+either can transmit a packet
+The receiving application can determine who sent the packet and respond
+if necessary
+No guarantee that the packet will reach it's destination
+reduces lag associated with TCP
+used in multiplayer games where transmitted data is not critical
+
+
+---- UDP Setup ----
+1. Initialize the library as with TCP
+2. create a socket configured for UDP
+3. For a server, only bind the socket to an address
+4. invoke "sendto" to transmit data
+5. invoke "recvfrom" to receive data
+
+
+---- Sending Data ----
+int sendto(SOCKET s, const char* buf, int len, int flags, 
+	   const struct sockaddr* to, int tolen);
+	s : A descriptor for a possibly identified socket
+	buf : a pointer to the data to be transmitted
+	len : size in bytes, of the data pointed to by buf
+	flags : flags that specify the way in which the call is made
+	to : an optional pointer to a sockaddr_in structure that
+	     contains the address of the target socket
+	tolen : the size, in bytes, of the address pointed to by the to param
+	Returns : No errors --> total bytes sent
+		  else --> -1
+
+sockaddr_in address;
+address.sin_family = AF_INET;
+InetPton(AF_INET, _T("127.0.0.1"1), &address.sin_addr.s_addr);
+address.sin_port = htons(5555);
+
+char buffer[200] = "send this to server"
+int bytesSent = sendto(socket, (const char*)buffer, strlen(buffer), 0,
+		       (struct sockaddr*)&address, sizeof(address)    );
+if (bytesSent == -1)
+{
+	cout << "Error Transmitting data." << endl;
+	WSACleanup();
+	return 0;
+}
+else
+{
+	cout << "Data sent: " << buffer << endl;
+}
+
+
+---- Receiving Data ----
+recvfrom receives a datagram and stores the source address. Blocking
+
+int recvfrom(SOCKET s, char* buf, int len, int flags, struct sockaddr* from,
+	     int *fromlen);
+	s : descriptor for IDing a bound socket
+	buf : a buffer for the incoming data
+	len : size in bytes, of the buffer pointed to by the buf param
+	flags : modify the behavior of the function
+	from : an optional pointer to a buffer in a sockaddr_in struct
+	       that will hold the source address upon return
+	fromlen : The size, in bytes, of the address pointed to by the 
+		  from param
+	Returns : no errors --> Number of bytes received
+		  else --> returns -1
+
+
+char buffer[200] = ""
+sockaddr_in clientAddress;
+int clientAddress_length = (int)sizeof(clientAddress);
+
+int bytes_received = recvfrom(socket, buffer, 200, 0, 
+			      (struct sockaddr*)&clientAddress, 
+			      &clientAddress_length);
+
+if (bytes_received < 0)
+{
+	cout << "Could not receive datagram." << endl;
+	WSACleanup();
+	return 0;
+}
+
+
+
+
+
+-- Vector3D --
+class Vector3D 
+{
+public:
+	float x, y, z;
+
+	Vector3D(float X, float Y, float Z) : x(X), y(Y), z(Z) {};
+};
+
+
+-- Converting Vector3D to a char array --
+Primitive types should be converted to a char array before being transmitted.
+
+6.1 indicates the size and the decimal places
+f indicates a float will be passed to it
+
+sprintf(char* buffer, const char* format, list of arguments);
+
+
+
+Vector3D position(1.0, 2.0, 3.0);
+char positionBuffer[200] = "";
+sprintf(positionBuffer, "%6.1f %6.1f %6.1f", position.x, position.y, position.z);
+
